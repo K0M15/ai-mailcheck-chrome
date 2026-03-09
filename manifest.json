@@ -1,0 +1,42 @@
+{
+  "manifest_version": 3,
+  "name": "AI Email Checker",
+  "version": "1.0",
+  "description": "Checks emails in Gmail and Outlook for spelling and logic errors using AI.",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "*://mail.google.com/*",
+    "*://outlook.live.com/*",
+    "*://outlook.office.com/*",
+    "*://outlook.office365.com/*",
+    "*://outlook.cloud.microsoft/*",
+    "*://localhost/*",
+    "*://127.0.0.1/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://mail.google.com/*",
+        "*://outlook.live.com/*",
+        "*://outlook.office.com/*",
+        "*://outlook.office365.com/*",
+        "*://outlook.cloud.microsoft/*",
+        "*://localhost/*",
+        "*://127.0.0.1/*"
+      ],
+      "css": ["styles.css"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

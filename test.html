@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Extension Test Page</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f0f2f5; }
+        .test-container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .compose-area { border: 1px solid #ccc; min-height: 200px; padding: 15px; margin-top: 20px; outline: none; border-radius: 4px; }
+        .compose-area:focus { border-color: #007bff; }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Extension Test Page</h1>
+        <p>This editable div simulates a webmail compose window (like Gmail or Outlook). Type your test message below. The extension content script should detect this and inject the 'Check with AI' button.</p>
+        
+        <!-- Role textbox helps simulate email editor -->
+        <div id="test-compose-window" class="compose-area" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Message Body">
+            Hi team,<br><br>I am writing this email to inform you about the new update. The logic of the system have some spelling mistakes that need to be addresed before launch.<br><br>Also 2+2 is 5, so we have a major issue in the budget.<br><br>Best,<br>Alain
+        </div>
+    </div>
+</body>
+</html>

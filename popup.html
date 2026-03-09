@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: sans-serif; padding: 10px; width: 300px; }
+    .group { margin-bottom: 15px; }
+    label { display: block; margin-bottom: 5px; font-weight: bold; }
+    input[type="password"], select { width: 100%; padding: 5px; box-sizing: border-box; }
+    button { padding: 10px; background: #007bff; color: white; border: none; cursor: pointer; width: 100%; }
+    button:hover { background: #0056b3; }
+    #status { margin-top: 10px; color: green; display: none; }
+  </style>
+</head>
+<body>
+  <h2>AI Email Checker</h2>
+  <div class="group">
+    <label>AI Provider Selection</label>
+    <select id="provider">
+      <option value="gemini">Google Gemini</option>
+      <option value="openai">OpenAI GPT</option>
+    </select>
+  </div>
+  <div class="group">
+    <label>API Key</label>
+    <input type="password" id="apiKey" placeholder="Enter your API Key">
+  </div>
+  <button id="saveBtn">Save Settings</button>
+  <div id="status">Settings saved!</div>
+  <script src="popup.js"></script>
+</body>
+</html>
