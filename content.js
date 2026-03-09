@@ -113,15 +113,35 @@ function showResultsOverlay(composer, errors) {
                 const idx = e.target.getAttribute('data-idx');
                 const err = errors[idx];
                 
-                // Extremely basic replacement logic (might fail with complex HTML structures)
-                // MVP solution: simply replace the text occurrence
-                if(composer.innerHTML.includes(err.original_text)) {
-                   composer.innerHTML = composer.innerHTML.replace(err.original_text, err.suggestion);
-                } else if (composer.innerText.includes(err.original_text)) {
-                   composer.innerText = composer.innerText.replace(err.original_text, err.suggestion);
-                } else {
-                   // Let the user know we couldn't auto-apply
-                   alert("Could not automatically apply the change due to formatting. Please apply manually.");
+                // Use TreeWalker to replace text without destroying HTML tags
+                let foundAndReplaced = false;
+                const walker = document.createTreeWalker(composer, NodeFilter.SHOW_TEXT, null, false);
+                
+                let node;
+                while ((node = walker.nextNode())) {
+                    if (node.nodeValue.includes(err.original_text)) {
+                        node.nodeValue = node.nodeValue.replace(err.original_text, err.suggestion);
+                        foundAndReplaced = true;
+                        
+                        // Let email clients know the content changed
+                        composer.dispatchEvent(new Event('input', { bubbles: true }));
+                        break;
+                    }
+                }
+
+                if (!foundAndReplaced) {
+                    // Fallback to naive replacement if TreeWalker didn't find the exact contiguous string 
+                    // (e.g., if the error spans across multiple HTML tags like "bad <b>word</b>")
+                    if (composer.innerHTML.includes(err.original_text)) {
+                        composer.innerHTML = composer.innerHTML.replace(err.original_text, err.suggestion);
+                        composer.dispatchEvent(new Event('input', { bubbles: true }));
+                    } else if (composer.innerText.includes(err.original_text)) {
+                        composer.innerText = composer.innerText.replace(err.original_text, err.suggestion);
+                        composer.dispatchEvent(new Event('input', { bubbles: true }));
+                    } else {
+                        alert("Could not automatically apply the change due to complex formatting. Please apply manually.");
+                        return; // Don't gray out the button
+                    }
                 }
                 
                 e.target.innerText = 'Applied!';
