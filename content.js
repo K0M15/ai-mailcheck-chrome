@@ -50,9 +50,12 @@ refineBtn.addEventListener('click', () => {
 
 // Periodically check for compose windows
 setInterval(() => {
-    // Selectors for Gmail (.M9, .Am.Al.editable), Outlook ([aria-label*="Message body"]), and generic ones
-    const composers = document.querySelectorAll('[role="textbox"][contenteditable="true"], .M9, .Am.Al.editable, [aria-multiline="true"]');
-    
+    // Selectors for Gmail (.M9, .Am.Al.editable), 
+    // Outlook ([aria-label*="Message body"]),
+    // GMX/Web.de (usually via classes like .cke_editable or iframe bodies if we had access, but often just contenteditable="true" works),
+    // and generic ones
+    const composers = document.querySelectorAll('[role="textbox"][contenteditable="true"], .M9, .Am.Al.editable, [aria-multiline="true"], .cke_editable, [contenteditable="true"]');
+
     // Filter out hidden elements or tiny elements
     const visibleComposers = Array.from(composers).filter(c => {
         const rect = c.getBoundingClientRect();
@@ -63,7 +66,7 @@ setInterval(() => {
         // Find the active one if any, otherwise default to the first
         let active = visibleComposers.find(c => c === document.activeElement || c.contains(document.activeElement));
         if (!active) active = visibleComposers[0];
-        
+
         currentComposer = active;
         actionContainer.style.display = 'flex'; // Show buttons when composer is found
         if (!actionContainer.dataset.logged) {
@@ -79,7 +82,7 @@ setInterval(() => {
 
 async function handleCheckClick(composer) {
     const text = composer.innerText || composer.textContent;
-    
+
     if (!text || text.trim().length === 0) {
         alert("Please enter some text in the email body before checking.");
         return;
@@ -93,8 +96,8 @@ async function handleCheckClick(composer) {
         globalBtn.disabled = false;
 
         if (chrome.runtime.lastError) {
-          alert("Extension Error: " + chrome.runtime.lastError.message);
-          return;
+            alert("Extension Error: " + chrome.runtime.lastError.message);
+            return;
         }
 
         if (response && response.error) {
@@ -116,7 +119,7 @@ function showResultsOverlay(composer, errors) {
 
     const overlay = document.createElement('div');
     overlay.id = 'ai-checker-overlay';
-    
+
     if (errors && errors.length > 0) {
         let html = '<h3>AI Suggestions</h3><ul style="list-style:none; padding:0; margin: 0;">';
         errors.forEach((err, idx) => {
@@ -131,26 +134,26 @@ function showResultsOverlay(composer, errors) {
         });
         html += '</ul><div style="text-align:right; margin-top: 15px;"><button id="ai-checker-close">Close</button></div>';
         overlay.innerHTML = html;
-        
+
         document.body.appendChild(overlay);
         document.getElementById('ai-checker-close').addEventListener('click', () => overlay.remove());
-        
+
         const applyBtns = document.querySelectorAll('.ai-checker-apply-btn');
         applyBtns.forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const idx = e.target.getAttribute('data-idx');
                 const err = errors[idx];
-                
+
                 // Use TreeWalker to replace text without destroying HTML tags
                 let foundAndReplaced = false;
                 const walker = document.createTreeWalker(composer, NodeFilter.SHOW_TEXT, null, false);
-                
+
                 let node;
                 while ((node = walker.nextNode())) {
                     if (node.nodeValue.includes(err.original_text)) {
                         node.nodeValue = node.nodeValue.replace(err.original_text, err.suggestion);
                         foundAndReplaced = true;
-                        
+
                         // Let email clients know the content changed
                         composer.dispatchEvent(new Event('input', { bubbles: true }));
                         break;
@@ -171,7 +174,7 @@ function showResultsOverlay(composer, errors) {
                         return; // Don't gray out the button
                     }
                 }
-                
+
                 e.target.innerText = 'Applied!';
                 e.target.disabled = true;
             });
@@ -185,7 +188,7 @@ function showResultsOverlay(composer, errors) {
 
 async function handleRefineClick(composer, tone) {
     const text = composer.innerText || composer.textContent;
-    
+
     if (!text || text.trim().length === 0) {
         alert("Please enter some text in the email body before refining.");
         return;
@@ -204,8 +207,8 @@ async function handleRefineClick(composer, tone) {
         }
 
         if (chrome.runtime.lastError) {
-          alert("Extension Error: " + chrome.runtime.lastError.message);
-          return;
+            alert("Extension Error: " + chrome.runtime.lastError.message);
+            return;
         }
 
         if (response && response.error) {
@@ -227,7 +230,7 @@ function showRefineResultsOverlay(composer, rewrittenText) {
 
     const overlay = document.createElement('div');
     overlay.id = 'ai-checker-overlay';
-    
+
     if (rewrittenText) {
         overlay.innerHTML = `
             <h3>AI Refinement</h3>
@@ -237,11 +240,11 @@ function showRefineResultsOverlay(composer, rewrittenText) {
                 <button id="ai-checker-apply-all-btn" class="ai-checker-apply-btn">Apply Rewrite</button>
             </div>
         `;
-        
+
         document.body.appendChild(overlay);
-        
+
         document.getElementById('ai-checker-close').addEventListener('click', () => overlay.remove());
-        
+
         document.getElementById('ai-checker-apply-all-btn').addEventListener('click', (e) => {
             if (composer.innerHTML !== undefined) {
                 composer.innerText = rewrittenText;
@@ -249,7 +252,7 @@ function showRefineResultsOverlay(composer, rewrittenText) {
                 composer.textContent = rewrittenText;
             }
             composer.dispatchEvent(new Event('input', { bubbles: true }));
-            
+
             e.target.innerText = 'Applied!';
             e.target.disabled = true;
             setTimeout(() => overlay.remove(), 1000);
