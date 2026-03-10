@@ -1,5 +1,5 @@
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === 'checkEmail') {
+  if (request.action === 'checkEmail' || request.action === 'refineEmail') {
     // 1. Get settings
     chrome.storage.sync.get(['aiProvider', 'apiKey'], async (settings) => {
       if (!settings.apiKey) {
@@ -7,7 +7,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return;
       }
       try {
-        const results = await generateAIResponse(settings.aiProvider, settings.apiKey, request.text);
+        const prompt = request.action === 'refineEmail' ? getRefineSystemPrompt(request.tone) : CHECK_SYSTEM_PROMPT;
+        const results = await generateAIResponse(settings.aiProvider, settings.apiKey, request.text, prompt);
         sendResponse({ success: true, results: results });
       } catch (err) {
         sendResponse({ error: err.message });
@@ -17,24 +18,28 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 });
 
-const SYSTEM_PROMPT = `You are an expert email proofreader. Review the following email text for spelling errors, grammatical mistakes, and logical inconsistencies. Provide a JSON response listing each error, the original text snippet, and a suggested correction. Do not change the tone unnecessarily. Format response as: {"errors": [{"original_text": "...", "suggestion": "...", "reason": "..."}]}`;
+const CHECK_SYSTEM_PROMPT = `You are an expert email proofreader. Review the following email text for spelling errors, grammatical mistakes, and logical inconsistencies. Provide a JSON response listing each error, the original text snippet, and a suggested correction. Do not change the tone unnecessarily. Format response as: {"errors": [{"original_text": "...", "suggestion": "...", "reason": "..."}]}`;
 
-async function generateAIResponse(provider, apiKey, text) {
+function getRefineSystemPrompt(tone) {
+  return `You are an expert email assistant. Rewrite the following email to be more ${tone}, while preserving the original context and meaning. Provide a JSON response with the final rewritten text. Format response as: {"rewritten_text": "..."}`;
+}
+
+async function generateAIResponse(provider, apiKey, text, prompt) {
   if (provider === 'gemini') {
-    return await callGemini(apiKey, text);
+    return await callGemini(apiKey, text, prompt);
   } else {
-    return await callOpenAI(apiKey, text);
+    return await callOpenAI(apiKey, text, prompt);
   }
 }
 
-async function callGemini(apiKey, text) {
+async function callGemini(apiKey, text, prompt) {
   // Setup the API request to Gemini
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
   
   const payload = {
     contents: [{
       parts: [{
-        text: `${SYSTEM_PROMPT}\n\nText to check:\n${text}`
+        text: `${prompt}\n\nText to process:\n${text}`
       }]
     }],
     generationConfig: {
@@ -58,15 +63,15 @@ async function callGemini(apiKey, text) {
   return JSON.parse(jsonString);
 }
 
-async function callOpenAI(apiKey, text) {
+async function callOpenAI(apiKey, text, prompt) {
   // Setup the API request to OpenAI
   const url = 'https://api.openai.com/v1/chat/completions';
   
   const payload = {
     model: 'gpt-4o-mini',
     messages: [
-      { role: 'system', content: SYSTEM_PROMPT },
-      { role: 'user', content: `Text to check:\n${text}` }
+      { role: 'system', content: prompt },
+      { role: 'user', content: `Text to process:\n${text}` }
     ],
     temperature: 0.1,
     response_format: { type: "json_object" }

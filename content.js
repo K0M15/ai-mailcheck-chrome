@@ -1,23 +1,51 @@
 console.log("AI Email Checker: Content script loaded - waiting for compose windows...");
 let currentComposer = null;
 
-// Initialize global button
+// Initialize action container
+const actionContainer = document.createElement('div');
+actionContainer.id = 'ai-checker-actions-container';
+actionContainer.style.display = 'none';
+
+// AI Check Button
 const globalBtn = document.createElement('button');
 globalBtn.id = 'ai-checker-global-btn';
 globalBtn.className = 'ai-checker-btn';
 globalBtn.innerText = '✨ Check with AI';
-globalBtn.style.display = 'none';
+
+// Tone Select Dropdown
+const toneSelect = document.createElement('select');
+toneSelect.id = 'ai-checker-tone-select';
+toneSelect.className = 'ai-checker-select';
+toneSelect.innerHTML = `
+  <option value="Professional">Professional</option>
+  <option value="Determining">Determining</option>
+  <option value="Friendly">Friendly</option>
+`;
+
+// Refine Button
+const refineBtn = document.createElement('button');
+refineBtn.id = 'ai-checker-refine-btn';
+refineBtn.className = 'ai-checker-btn';
+refineBtn.innerText = 'Refine';
+
+actionContainer.appendChild(globalBtn);
+actionContainer.appendChild(toneSelect);
+actionContainer.appendChild(refineBtn);
 
 // We wait for the body to be available
 const intervalId = setInterval(() => {
     if (document.body) {
-        document.body.appendChild(globalBtn);
+        document.body.appendChild(actionContainer);
         clearInterval(intervalId);
     }
 }, 100);
 
 globalBtn.addEventListener('click', () => {
     if (currentComposer) handleCheckClick(currentComposer);
+});
+
+refineBtn.addEventListener('click', () => {
+    if (currentComposer) handleRefineClick(currentComposer, toneSelect.value);
 });
 
 // Periodically check for compose windows
@@ -37,15 +65,15 @@ setInterval(() => {
         if (!active) active = visibleComposers[0];
         
         currentComposer = active;
-        globalBtn.style.display = 'flex'; // Show button when composer is found
-        if (!globalBtn.dataset.logged) {
-            console.log("AI Email Checker: Found composer and injected button!");
-            globalBtn.dataset.logged = "true";
+        actionContainer.style.display = 'flex'; // Show buttons when composer is found
+        if (!actionContainer.dataset.logged) {
+            console.log("AI Email Checker: Found composer and injected buttons!");
+            actionContainer.dataset.logged = "true";
         }
     } else {
-        globalBtn.style.display = 'none';
+        actionContainer.style.display = 'none';
         currentComposer = null;
-        globalBtn.dataset.logged = "";
+        actionContainer.dataset.logged = "";
     }
 }, 1000);
 
@@ -150,6 +178,84 @@ function showResultsOverlay(composer, errors) {
         });
     } else {
         overlay.innerHTML = '<h3>Looking good!</h3><p>No issues found in your text.</p><div style="text-align:right;"><button id="ai-checker-close">Close</button></div>';
+        document.body.appendChild(overlay);
+        document.getElementById('ai-checker-close').addEventListener('click', () => overlay.remove());
+    }
+}
+
+async function handleRefineClick(composer, tone) {
+    const text = composer.innerText || composer.textContent;
+    
+    if (!text || text.trim().length === 0) {
+        alert("Please enter some text in the email body before refining.");
+        return;
+    }
+
+    const refineBtn = document.getElementById('ai-checker-refine-btn');
+    if (refineBtn) {
+        refineBtn.innerText = 'Refining...';
+        refineBtn.disabled = true;
+    }
+
+    chrome.runtime.sendMessage({ action: 'refineEmail', text: text, tone: tone }, (response) => {
+        if (refineBtn) {
+            refineBtn.innerText = 'Refine';
+            refineBtn.disabled = false;
+        }
+
+        if (chrome.runtime.lastError) {
+          alert("Extension Error: " + chrome.runtime.lastError.message);
+          return;
+        }
+
+        if (response && response.error) {
+            alert("AI Checker Error: " + response.error);
+            return;
+        }
+
+        if (response && response.success && response.results) {
+            showRefineResultsOverlay(composer, response.results.rewritten_text);
+        } else {
+            alert("Unknown error occurred");
+        }
+    });
+}
+
+function showRefineResultsOverlay(composer, rewrittenText) {
+    const existing = document.getElementById('ai-checker-overlay');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'ai-checker-overlay';
+    
+    if (rewrittenText) {
+        overlay.innerHTML = `
+            <h3>AI Refinement</h3>
+            <div style="background-color: #f8fafc; padding: 12px; border-radius: 6px; border: 1px solid #e2e8f0; margin-bottom: 16px; white-space: pre-wrap; font-family: inherit;">${rewrittenText}</div>
+            <div style="text-align: right; display: flex; justify-content: flex-end; gap: 8px;">
+                <button id="ai-checker-close" class="ai-checker-secondary-btn">Cancel</button>
+                <button id="ai-checker-apply-all-btn" class="ai-checker-apply-btn">Apply Rewrite</button>
+            </div>
+        `;
+        
+        document.body.appendChild(overlay);
+        
+        document.getElementById('ai-checker-close').addEventListener('click', () => overlay.remove());
+        
+        document.getElementById('ai-checker-apply-all-btn').addEventListener('click', (e) => {
+            if (composer.innerHTML !== undefined) {
+                composer.innerText = rewrittenText;
+            } else {
+                composer.textContent = rewrittenText;
+            }
+            composer.dispatchEvent(new Event('input', { bubbles: true }));
+            
+            e.target.innerText = 'Applied!';
+            e.target.disabled = true;
+            setTimeout(() => overlay.remove(), 1000);
+        });
+    } else {
+        overlay.innerHTML = '<h3>Error</h3><p>Could not refine text.</p><div style="text-align:right;"><button id="ai-checker-close" class="ai-checker-secondary-btn">Close</button></div>';
         document.body.appendChild(overlay);
         document.getElementById('ai-checker-close').addEventListener('click', () => overlay.remove());
     }
